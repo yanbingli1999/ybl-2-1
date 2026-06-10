@@ -39,7 +39,7 @@ export function generateOrder(
   };
 
   const pickupLocation = getRandomRoadPosition();
-  let deliveryLocation = getRandomRoadPosition();
+  const deliveryLocation = getRandomRoadPosition();
 
   const distance = Math.floor(
     Math.hypot(deliveryLocation.x - pickupLocation.x, deliveryLocation.y - pickupLocation.y) / GRID_SIZE
@@ -64,11 +64,20 @@ export function generateOrder(
     customerUrgency,
     distance: clampedDistance,
     createdAt: gameTime,
+    bundleId: null,
+    bundleOrder: null,
   };
 }
 
-export function canAcceptOrder(order: Order, player: { currentOrderId: string | null }): boolean {
+export function canAcceptOrder(order: Order, player: { currentOrderId: string | null; currentBundleId: string | null }): boolean {
+  if (player.currentBundleId) return false;
   return order.status === 'available' && player.currentOrderId === null;
+}
+
+export function canAcceptBundleOrder(order: Order, player: { currentOrderId: string | null; currentBundleId: string | null }): boolean {
+  if (player.currentBundleId) return false;
+  if (!player.currentOrderId) return false;
+  return order.status === 'available' && order.bundleId === null;
 }
 
 export function isAtLocation(

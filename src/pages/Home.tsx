@@ -7,6 +7,7 @@ import OrderPanel from '../components/OrderPanel';
 import ControlBar from '../components/ControlBar';
 import SettlementModal from '../components/SettlementModal';
 import SaveLoadModal from '../components/SaveLoadModal';
+import BundlePreviewModal from '../components/BundlePreviewModal';
 import { hasSavedGame } from '../game/Storage';
 import { Truck, HelpCircle, X } from 'lucide-react';
 
@@ -64,6 +65,7 @@ export default function Home() {
 
       <SettlementModal />
       <SaveLoadModal isOpen={showSaveModal} onClose={() => setShowSaveModal(false)} />
+      <BundlePreviewModal />
 
       {showStartScreen && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
@@ -105,7 +107,8 @@ export default function Home() {
                 <li>⚡ 注意电量、体力和车辆耐久度</li>
                 <li>🌧️ 雨天会影响行驶速度</li>
                 <li>⏰ 迟到会被扣钱，提早送达有奖励</li>
-                <li>💾 游戏进度会自动保存到本地</li>
+                <li>� 晚高峰可以拼单，顺路多赚</li>
+                <li>� 游戏进度会自动保存到本地</li>
               </ul>
             </div>
           </div>
@@ -126,6 +129,7 @@ export default function Home() {
                   ? (player.totalRating / player.completedOrders).toFixed(1)
                   : '0.0'}/5.0
               </span></p>
+              <p>最终信誉 <span className="text-game-neon">{player.reputation}/{player.maxReputation}</span></p>
             </div>
             <button
               onClick={handleRestart}
@@ -180,6 +184,19 @@ export default function Home() {
                   <li>• 紧急订单按时送达有额外奖励</li>
                   <li>• 可以在充电站充电、修车铺修车</li>
                   <li>• 休息可以恢复体力</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-pixel text-xs text-game-streetLight mb-2">晚高峰拼单玩法</h4>
+                <ul className="space-y-1">
+                  <li>• <span className="text-game-streetLight">17:30-19:30</span> 为晚高峰时段</li>
+                  <li>• 接单后可以合并<span className="text-game-neon">取货点接近</span>的订单</li>
+                  <li>• 合并前显示多走路程、超时风险、额外收益</li>
+                  <li>• 晚高峰拼单有<span className="text-game-streetLight">+50% 奖金</span></li>
+                  <li>• 地图按取/送货顺序自动切换目标</li>
+                  <li>• 中途可以拆单，但扣除<span className="text-game-danger">信誉和费用</span></li>
+                  <li>• 信誉值影响后续订单的质量和数量</li>
                 </ul>
               </div>
 

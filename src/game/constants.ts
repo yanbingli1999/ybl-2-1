@@ -68,3 +68,17 @@ export const BUILDING_NAMES = [
   '居民区', '商业中心', '工厂', '仓库', '办公楼',
   '酒店', '医院', '学校', '公园', '停车场',
 ];
+
+export const MAX_BUNDLE_SIZE = 2;
+export const BUNDLE_PICKUP_DISTANCE_THRESHOLD = 15;
+export const BUNDLE_DETOUR_RATIO_THRESHOLD = 2.0;
+export const BUNDLE_BONUS_RATE = 0.3;
+export const BUNDLE_RUSH_HOUR_BONUS_RATE = 0.5;
+export const UNBUNDLE_REPUTATION_PENALTY = 10;
+export const UNBUNDLE_MONEY_PENALTY_RATE = 0.2;
+export const RUSH_HOUR_START = 63000;
+export const RUSH_HOUR_END = 70200;
+export const INITIAL_REPUTATION = 100;
+export const MAX_REPUTATION = 100;
+export const REPUTATION_RECOVERY_RATE = 0.5;
+export const BUNDLE_TIME_ESTIMATE_PER_GRID = 1.5;

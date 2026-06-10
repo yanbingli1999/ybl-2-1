@@ -46,7 +46,7 @@ export function calculateSettlement(order: Order, playerStamina: number): Settle
     details.push(`体力不足: -¥${staminaPenalty}`);
   }
 
-  let bonus = earlyBonus + urgencyBonus;
+  const bonus = earlyBonus + urgencyBonus;
   let finalAmount = baseReward - latePenalty - staminaPenalty + bonus;
 
   if (finalAmount < 0) {

@@ -2,7 +2,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
 import { WEATHER_NAMES, WEATHER_COLORS } from '../game/constants';
 import { calculateTotalRating, formatMoney } from '../game/EconomySystem';
-import { Zap, Heart, Wrench, DollarSign, Cloud, Clock, Star } from 'lucide-react';
+import { Zap, Heart, Wrench, DollarSign, Cloud, Clock, Star, Shield, Award } from 'lucide-react';
 
 export default function StatusPanel() {
   const player = useGameStore((state) => state.player);
@@ -16,9 +16,9 @@ export default function StatusPanel() {
 
   const avgRating = calculateTotalRating(incomeRecords);
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   };
 
   const getProgressClass = (value: number) => {
@@ -124,6 +124,34 @@ export default function StatusPanel() {
           <span className="font-retro text-sm text-game-streetLight">
             评分: {avgRating > 0 ? avgRating.toFixed(1) : '-'}/5.0
           </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Award size={14} className="text-game-neon" />
+          <span className="font-retro text-sm text-game-neon">
+            信誉: {player.reputation}/{player.maxReputation}
+          </span>
+        </div>
+
+        <div className="space-y-1 mb-2">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-1">
+              <Shield size={12} className="text-game-neon" />
+              <span className="font-retro text-xs text-gray-400">信誉值</span>
+            </div>
+            <span className={`font-retro text-xs ${player.reputation < 30 ? 'text-game-danger animate-pulse' : ''}`}>
+              {Math.floor(player.reputation)}%
+            </span>
+          </div>
+          <div className="progress-bar">
+            <div
+              className={`progress-bar-fill ${getProgressClass(player.reputation)}`}
+              style={{ 
+                width: `${player.reputation}%`,
+                background: 'linear-gradient(90deg, #00ffcc 0%, #66ffee 100%)'
+              }}
+            />
+          </div>
         </div>
 
         <div className="flex items-center justify-between">

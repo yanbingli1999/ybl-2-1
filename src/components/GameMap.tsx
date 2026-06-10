@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useGameStore, selectCurrentOrder } from '../store/gameStore';
+import { useGameStore, selectCurrentOrder, useCurrentBundle, useBundleOrders } from '../store/gameStore';
 import { GRID_SIZE } from '../game/constants';
 import { getRainParticleCount, isRaining } from '../game/WeatherSystem';
 
@@ -21,9 +21,12 @@ export default function GameMap() {
   const player = useGameStore((state) => state.player);
   const vehicle = useGameStore((state) => state.vehicle);
   const weather = useGameStore((state) => state.weather);
+  const isRushHour = useGameStore((state) => state.isRushHour);
   const plannedPath = useGameStore(useShallow((state) => state.plannedPath));
   const orders = useGameStore(useShallow((state) => state.orders));
   const currentOrder = useGameStore(useShallow(selectCurrentOrder));
+  const currentBundle = useCurrentBundle();
+  const bundleOrders = useBundleOrders();
   const isPaused = useGameStore((state) => state.isPaused);
 
   useEffect(() => {
@@ -61,6 +64,10 @@ export default function GameMap() {
 
       if (isRaining(weather.type)) {
         drawRain(ctx);
+      }
+
+      if (isRushHour) {
+        drawRushHourOverlay(ctx);
       }
 
       animationRef.current = requestAnimationFrame(render);
@@ -207,7 +214,89 @@ export default function GameMap() {
         }
       });
 
-      if (currentOrder) {
+      if (currentBundle && bundleOrders.length > 0) {
+        currentBundle.steps.forEach((step, idx) => {
+          const isCurrentStep = idx === currentBundle.currentStepIndex;
+          const isCompleted = step.completed;
+          const color = step.type === 'pickup' ? '#2ed573' : '#ff4757';
+          const icon = step.type === 'pickup' ? '📍' : '🏠';
+          const pulse = Math.sin(timeRef.current * 3 + idx) * 0.5 + 0.5;
+
+          if (isCompleted) {
+            ctx.beginPath();
+            ctx.arc(step.location.x, step.location.y, 12, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';
+            ctx.font = 'bold 18px VT323';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('✓', step.location.x, step.location.y);
+          } else if (isCurrentStep) {
+            for (let i = 3; i > 0; i--) {
+              ctx.beginPath();
+              ctx.arc(step.location.x, step.location.y, 20 + i * 8 + pulse * 6, 0, Math.PI * 2);
+              ctx.strokeStyle = `${color}${Math.floor(0.3 / i * 255).toString(16).padStart(2, '0')}`;
+              ctx.lineWidth = 3;
+              ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.arc(step.location.x, step.location.y, 22, 0, Math.PI * 2);
+            ctx.fillStyle = `${color}${Math.floor((0.4 + pulse * 0.2) * 255).toString(16).padStart(2, '0')}`;
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = color;
+            ctx.font = 'bold 22px VT323';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(icon, step.location.x, step.location.y);
+
+            ctx.fillStyle = color;
+            ctx.font = 'bold 12px VT323';
+            ctx.fillText(`${idx + 1}. ${step.location.name}`, step.location.x, step.location.y - 32);
+          } else {
+            ctx.beginPath();
+            ctx.arc(step.location.x, step.location.y, 14, 0, Math.PI * 2);
+            ctx.fillStyle = `${color}40`;
+            ctx.fill();
+            ctx.strokeStyle = `${color}80`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = color;
+            ctx.font = 'bold 14px VT323';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${idx + 1}`, step.location.x, step.location.y);
+
+            ctx.fillStyle = `${color}aa`;
+            ctx.font = '10px VT323';
+            ctx.fillText(step.location.name, step.location.x, step.location.y - 24);
+          }
+        });
+
+        ctx.beginPath();
+        ctx.moveTo(player.position.x, player.position.y);
+        currentBundle.steps.forEach((step) => {
+          if (!step.completed) {
+            ctx.lineTo(step.location.x, step.location.y);
+          }
+        });
+        ctx.strokeStyle = 'rgba(255, 204, 77, 0.3)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 10]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (currentOrder) {
         const pulse = Math.sin(timeRef.current * 3) * 0.5 + 0.5;
         if (currentOrder.status === 'accepted') {
           for (let i = 3; i > 0; i--) {
@@ -397,7 +486,7 @@ export default function GameMap() {
         });
       }
 
-      rainDropsRef.current.forEach((drop, index) => {
+      rainDropsRef.current.forEach((drop) => {
         ctx.beginPath();
         ctx.moveTo(drop.x, drop.y);
         ctx.lineTo(drop.x - 2, drop.y + drop.length);
@@ -419,12 +508,27 @@ export default function GameMap() {
       }
     };
 
+    const drawRushHourOverlay = (ctx: CanvasRenderingContext2D) => {
+      ctx.fillStyle = 'rgba(255, 107, 129, 0.08)';
+      ctx.fillRect(0, 0, map.width, map.height);
+
+      const pulse = Math.sin(timeRef.current * 2) * 0.5 + 0.5;
+      ctx.strokeStyle = `rgba(255, 71, 87, ${0.3 + pulse * 0.2})`;
+      ctx.lineWidth = 4;
+      ctx.strokeRect(2, 2, map.width - 4, map.height - 4);
+
+      ctx.fillStyle = `rgba(255, 71, 87, ${0.8 + pulse * 0.2})`;
+      ctx.font = 'bold 16px VT323';
+      ctx.textAlign = 'left';
+      ctx.fillText('🌆 晚高峰 17:30-19:30', 10, 25);
+    };
+
     render();
 
     return () => {
       cancelAnimationFrame(animationRef.current);
     };
-  }, [map, player, vehicle, weather, plannedPath, orders, currentOrder]);
+  }, [map, player, vehicle, weather, plannedPath, orders, currentOrder, currentBundle, bundleOrders.length, isRushHour]);
 
   return (
     <div className="relative">

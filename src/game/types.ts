@@ -11,6 +11,9 @@ export interface PlayerState {
   maxStamina: number;
   position: Position;
   currentOrderId: string | null;
+  currentBundleId: string | null;
+  reputation: number;
+  maxReputation: number;
   completedOrders: number;
   totalRating: number;
 }
@@ -40,6 +43,40 @@ export interface Order {
   customerUrgency: number;
   distance: number;
   createdAt: number;
+  bundleId: string | null;
+  bundleOrder: number | null;
+}
+
+export type BundleStatus = 'available' | 'active' | 'completed' | 'cancelled';
+
+export interface BundledOrder {
+  id: string;
+  orderIds: string[];
+  status: BundleStatus;
+  currentStepIndex: number;
+  steps: BundleStep[];
+  createdAt: number;
+}
+
+export interface BundleStep {
+  type: 'pickup' | 'delivery';
+  orderId: string;
+  location: Position & { name: string };
+  completed: boolean;
+}
+
+export interface BundlePreview {
+  bundleId: string;
+  primaryOrderId: string;
+  secondaryOrderId: string;
+  extraDistance: number;
+  extraTime: number;
+  extraReward: number;
+  atRiskOrderId: string | null;
+  atRiskMinutes: number;
+  totalReward: number;
+  steps: BundleStep[];
+  isRushHour: boolean;
 }
 
 export type WeatherType = 'sunny' | 'cloudy' | 'rainy' | 'heavy_rain' | 'storm';
@@ -106,6 +143,9 @@ export interface GameState {
   vehicle: VehicleState;
   weather: WeatherState;
   orders: Order[];
+  bundledOrders: BundledOrder[];
+  bundlePreview: BundlePreview | null;
+  showBundlePreview: boolean;
   incomeRecords: IncomeRecord[];
   map: MapData;
   gameTime: number;
@@ -117,6 +157,7 @@ export interface GameState {
   isCharging: boolean;
   isRepairing: boolean;
   isResting: boolean;
+  isRushHour: boolean;
 }
 
 export interface GameSave {
@@ -150,4 +191,10 @@ export type GameAction =
   | { type: 'CLEAR_PATH' }
   | { type: 'NEW_GAME' }
   | { type: 'LOAD_GAME'; save: GameSave }
-  | { type: 'GAME_OVER' };
+  | { type: 'GAME_OVER' }
+  | { type: 'SHOW_BUNDLE_PREVIEW'; primaryOrderId: string; secondaryOrderId: string }
+  | { type: 'ACCEPT_BUNDLE'; preview: BundlePreview }
+  | { type: 'DECLINE_BUNDLE' }
+  | { type: 'UNBUNDLE_ORDER'; orderId: string; reason: string }
+  | { type: 'ADVANCE_BUNDLE_STEP' }
+  | { type: 'UPDATE_RUSH_HOUR'; isRushHour: boolean };
