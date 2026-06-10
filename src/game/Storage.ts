@@ -13,17 +13,44 @@ export function saveGame(
   isRushHour: boolean
 ): boolean {
   try {
+    const activeOrders = orders.filter((o) => o.status !== 'completed' && o.status !== 'failed');
+    const activeOrderIds = new Set(activeOrders.map((o) => o.id));
+
+    const cleanedBundles: BundledOrder[] = [];
+    for (const bundle of bundledOrders) {
+      if (bundle.status !== 'active') continue;
+
+      const remainingOrderIds = bundle.orderIds.filter((id) => activeOrderIds.has(id));
+      const remainingSteps = bundle.steps.filter(
+        (step) => activeOrderIds.has(step.orderId) || step.completed
+      );
+
+      if (remainingOrderIds.length === 0) continue;
+
+      const currentStepIndex = Math.min(
+        bundle.currentStepIndex,
+        remainingSteps.length - 1
+      );
+
+      cleanedBundles.push({
+        ...bundle,
+        orderIds: remainingOrderIds,
+        steps: remainingSteps,
+        currentStepIndex,
+      });
+    }
+
     const save: GameSave = {
       version: SAVE_VERSION,
       savedAt: Date.now(),
       player,
       vehicle,
       weather,
-      orders: orders.filter((o) => o.status !== 'completed' && o.status !== 'failed'),
+      orders: activeOrders,
       incomeRecords,
       gameTime,
       map,
-      bundledOrders: bundledOrders.filter((b) => b.status === 'active'),
+      bundledOrders: cleanedBundles,
       isRushHour,
     };
 

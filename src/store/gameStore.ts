@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import type { GameState, GameAction, Order } from '../game/types';
+import type { GameState, GameAction, Order, Position } from '../game/types';
 import { generateMapData, findPath } from '../game/mapData';
 import { generateOrder, updateOrderDeadlines, isAtLocation, canAcceptOrder } from '../game/OrderSystem';
 import { updateWeather, createInitialWeather } from '../game/WeatherSystem';
@@ -200,16 +200,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (order.bundleId) {
         const bundle = newState.bundledOrders.find((b) => b.id === order.bundleId);
         if (bundle) {
-          const remainingOrders = bundle.orderIds.filter(
+          const remainingOrderIds = bundle.orderIds.filter(
             (id) => id !== order.id && newState.orders.find((o) => o.id === id)?.status !== 'completed'
           );
-          if (remainingOrders.length === 0) {
+          if (remainingOrderIds.length === 0) {
             newState.bundledOrders = newState.bundledOrders.map((b) =>
-              b.id === order.bundleId ? { ...b, status: 'completed' as const } : b
+              b.id === order.bundleId ? { ...b, status: 'completed' as const, orderIds: remainingOrderIds } : b
             );
             newState.player = { ...newState.player, currentBundleId: null };
           } else {
-            newState.player = { ...newState.player, currentOrderId: remainingOrders[0] };
+            newState.bundledOrders = newState.bundledOrders.map((b) =>
+              b.id === order.bundleId ? { ...b, orderIds: remainingOrderIds } : b
+            );
+            newState.player = { ...newState.player, currentOrderId: remainingOrderIds[0] };
             newState = gameReducer(newState, { type: 'ADVANCE_BUNDLE_STEP' });
           }
         }
@@ -589,19 +592,76 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'LOAD_GAME': {
       const save = action.save;
+      const loadedOrders = save.orders;
+      const loadedBundles = save.bundledOrders || [];
+      const loadedIsRushHour = save.isRushHour !== undefined ? save.isRushHour : false;
+
+      let restoredCurrentOrderId = save.player.currentOrderId;
+      let restoredCurrentBundleId = save.player.currentBundleId;
+      let restoredPlannedPath: Position[] = [];
+
+      if (restoredCurrentBundleId) {
+        const bundle = loadedBundles.find((b) => b.id === restoredCurrentBundleId);
+        if (bundle && bundle.status === 'active') {
+          const activeOrderIds = new Set(loadedOrders.map((o) => o.id));
+          const validOrderIds = bundle.orderIds.filter((id) => activeOrderIds.has(id));
+
+          if (validOrderIds.length === 0) {
+            restoredCurrentBundleId = null;
+            restoredCurrentOrderId = null;
+          } else {
+            if (!restoredCurrentOrderId || !activeOrderIds.has(restoredCurrentOrderId)) {
+              restoredCurrentOrderId = validOrderIds[0];
+            }
+
+            if (bundle.currentStepIndex < bundle.steps.length) {
+              const currentStep = bundle.steps[bundle.currentStepIndex];
+              restoredPlannedPath = findPath(
+                save.vehicle.position.x,
+                save.vehicle.position.y,
+                currentStep.location.x,
+                currentStep.location.y,
+                save.map.roads,
+                save.map.gridSize
+              );
+            }
+          }
+        } else {
+          restoredCurrentBundleId = null;
+        }
+      } else if (restoredCurrentOrderId) {
+        const order = loadedOrders.find((o) => o.id === restoredCurrentOrderId);
+        if (order) {
+          const target = order.status === 'accepted' ? order.pickupLocation : order.deliveryLocation;
+          restoredPlannedPath = findPath(
+            save.vehicle.position.x,
+            save.vehicle.position.y,
+            target.x,
+            target.y,
+            save.map.roads,
+            save.map.gridSize
+          );
+        }
+      }
+
       return {
         ...createInitialState(),
-        player: save.player,
+        player: {
+          ...save.player,
+          currentOrderId: restoredCurrentOrderId,
+          currentBundleId: restoredCurrentBundleId,
+        },
         vehicle: save.vehicle,
         weather: save.weather,
-        orders: save.orders,
+        orders: loadedOrders,
         incomeRecords: save.incomeRecords,
         gameTime: save.gameTime,
         map: save.map,
-        bundledOrders: save.bundledOrders || [],
+        bundledOrders: loadedBundles,
         bundlePreview: null,
         showBundlePreview: false,
-        isRushHour: save.isRushHour !== undefined ? save.isRushHour : false,
+        isRushHour: loadedIsRushHour,
+        plannedPath: restoredPlannedPath,
       };
     }
 
