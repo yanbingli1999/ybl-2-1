@@ -66,6 +66,7 @@ export function generateOrder(
     createdAt: gameTime,
     bundleId: null,
     bundleOrder: null,
+    bundleBonus: 0,
   };
 }
 

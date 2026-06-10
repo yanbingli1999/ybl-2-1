@@ -45,6 +45,7 @@ export interface Order {
   createdAt: number;
   bundleId: string | null;
   bundleOrder: number | null;
+  bundleBonus: number;
 }
 
 export type BundleStatus = 'available' | 'active' | 'completed' | 'cancelled';
@@ -77,6 +78,7 @@ export interface BundlePreview {
   totalReward: number;
   steps: BundleStep[];
   isRushHour: boolean;
+  bundleBonus: number;
 }
 
 export type WeatherType = 'sunny' | 'cloudy' | 'rainy' | 'heavy_rain' | 'storm';
@@ -170,6 +172,8 @@ export interface GameSave {
   incomeRecords: IncomeRecord[];
   gameTime: number;
   map: MapData;
+  bundledOrders: BundledOrder[];
+  isRushHour: boolean;
 }
 
 export type GameAction =

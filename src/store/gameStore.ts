@@ -162,6 +162,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (!isAtLocation(state.player.position, order.deliveryLocation, 50)) return state;
 
       const settlement = calculateSettlement(order, state.player.stamina);
+      const bundleBonus = order.bundleBonus || 0;
+      const finalAmountWithBonus = settlement.record.finalAmount + bundleBonus;
 
       let newState: GameState = {
         ...state,
@@ -170,14 +172,28 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ),
         player: {
           ...state.player,
-          money: state.player.money + settlement.record.finalAmount,
+          money: state.player.money + finalAmountWithBonus,
           currentOrderId: null,
           completedOrders: state.player.completedOrders + 1,
           totalRating: state.player.totalRating + settlement.rating,
         },
-        incomeRecords: [...state.incomeRecords, settlement.record],
+        incomeRecords: [...state.incomeRecords, {
+          ...settlement.record,
+          finalAmount: finalAmountWithBonus,
+          bonus: settlement.record.bonus + bundleBonus,
+          details: bundleBonus > 0 
+            ? `${settlement.record.details} | 拼单奖金: +¥${bundleBonus}` 
+            : settlement.record.details,
+        }],
         showSettlement: true,
-        lastSettlement: settlement.record,
+        lastSettlement: {
+          ...settlement.record,
+          finalAmount: finalAmountWithBonus,
+          bonus: settlement.record.bonus + bundleBonus,
+          details: bundleBonus > 0 
+            ? `${settlement.record.details} | 拼单奖金: +¥${bundleBonus}` 
+            : settlement.record.details,
+        },
         plannedPath: [],
       };
 
@@ -232,10 +248,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       const updatedOrders = state.orders.map((o) => {
         if (o.id === preview.primaryOrderId) {
-          return { ...o, bundleId: preview.bundleId, bundleOrder: 0 };
+          return { ...o, bundleId: preview.bundleId, bundleOrder: 0, bundleBonus: 0 };
         }
         if (o.id === preview.secondaryOrderId) {
-          return { ...o, status: 'accepted' as const, bundleId: preview.bundleId, bundleOrder: 1 };
+          return { ...o, status: 'accepted' as const, bundleId: preview.bundleId, bundleOrder: 1, bundleBonus: preview.bundleBonus };
         }
         return o;
       });
@@ -283,7 +299,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       const updatedOrders = state.orders.map((o) => {
         if (o.id === action.orderId) {
-          return { ...o, status: 'available' as const, bundleId: null, bundleOrder: null };
+          return { ...o, status: 'available' as const, bundleId: null, bundleOrder: null, bundleBonus: 0 };
+        }
+        if (o.bundleId === orderToRemove.bundleId && o.id !== action.orderId) {
+          return { ...o, bundleId: null, bundleOrder: null, bundleBonus: 0 };
         }
         return o;
       });
@@ -579,10 +598,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         incomeRecords: save.incomeRecords,
         gameTime: save.gameTime,
         map: save.map,
-        bundledOrders: [],
+        bundledOrders: save.bundledOrders || [],
         bundlePreview: null,
         showBundlePreview: false,
-        isRushHour: false,
+        isRushHour: save.isRushHour !== undefined ? save.isRushHour : false,
       };
     }
 
@@ -634,7 +653,9 @@ export const useGameStore = create<GameStore>((set, get) => {
         state.orders,
         state.incomeRecords,
         state.gameTime,
-        state.map
+        state.map,
+        state.bundledOrders,
+        state.isRushHour
       );
     },
 

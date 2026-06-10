@@ -16,7 +16,7 @@ export function calculateGridDistance(pos1: Position, pos2: Position): number {
 export function canBundleOrders(
   primaryOrder: Order,
   secondaryOrder: Order,
-  _map: MapData,
+  map: MapData,
   _playerPos: Position
 ): boolean {
   void _playerPos;
@@ -30,6 +30,41 @@ export function canBundleOrders(
   );
   if (pickupDistance > BUNDLE_PICKUP_DISTANCE_THRESHOLD) {
     return false;
+  }
+
+  const primaryPath = findPath(
+    primaryOrder.pickupLocation.x,
+    primaryOrder.pickupLocation.y,
+    primaryOrder.deliveryLocation.x,
+    primaryOrder.deliveryLocation.y,
+    map.roads,
+    map.gridSize
+  );
+  const primaryDistance = primaryPath.length;
+
+  const bundleSteps = generateBundleSteps(primaryOrder, secondaryOrder);
+  let bundleDistance = 0;
+  for (let i = 0; i < bundleSteps.length - 1; i++) {
+    const path = findPath(
+      bundleSteps[i].location.x,
+      bundleSteps[i].location.y,
+      bundleSteps[i + 1].location.x,
+      bundleSteps[i + 1].location.y,
+      map.roads,
+      map.gridSize
+    );
+    if (path.length === 0) {
+      bundleDistance += calculateGridDistance(bundleSteps[i].location, bundleSteps[i + 1].location);
+    } else {
+      bundleDistance += path.length;
+    }
+  }
+
+  if (primaryDistance > 0 && bundleDistance > 0) {
+    const detourRatio = bundleDistance / primaryDistance;
+    if (detourRatio > BUNDLE_DETOUR_RATIO_THRESHOLD) {
+      return false;
+    }
   }
 
   return true;
@@ -137,7 +172,11 @@ export function calculateBundleTotalDistance(steps: BundleStep[], map: MapData):
       map.roads,
       map.gridSize
     );
-    totalDistance += path.length;
+    if (path.length === 0) {
+      totalDistance += calculateGridDistance(steps[i].location, steps[i + 1].location);
+    } else {
+      totalDistance += path.length;
+    }
   }
 
   return totalDistance;
@@ -156,15 +195,27 @@ export function generateBundlePreview(
 
   const steps = generateBundleSteps(primaryOrder, secondaryOrder);
 
-  const primarySinglePath = findPath(
+  const primaryPickupPath = findPath(
     playerPos.x,
     playerPos.y,
+    primaryOrder.pickupLocation.x,
+    primaryOrder.pickupLocation.y,
+    map.roads,
+    map.gridSize
+  );
+  const primaryDeliveryPath = findPath(
+    primaryOrder.pickupLocation.x,
+    primaryOrder.pickupLocation.y,
     primaryOrder.deliveryLocation.x,
     primaryOrder.deliveryLocation.y,
     map.roads,
     map.gridSize
   );
-  const primarySingleDistance = primarySinglePath.length;
+  let primarySingleDistance = primaryPickupPath.length + primaryDeliveryPath.length;
+  if (primaryPickupPath.length === 0 || primaryDeliveryPath.length === 0) {
+    primarySingleDistance = calculateGridDistance(playerPos, primaryOrder.pickupLocation) +
+      calculateGridDistance(primaryOrder.pickupLocation, primaryOrder.deliveryLocation);
+  }
 
   let bundleTotalDistance = 0;
   let lastPos = playerPos;
@@ -177,7 +228,11 @@ export function generateBundlePreview(
       map.roads,
       map.gridSize
     );
-    bundleTotalDistance += path.length;
+    if (path.length === 0) {
+      bundleTotalDistance += calculateGridDistance(lastPos, step.location);
+    } else {
+      bundleTotalDistance += path.length;
+    }
     lastPos = step.location;
   }
 
@@ -185,9 +240,8 @@ export function generateBundlePreview(
   const extraTime = extraDistance * BUNDLE_TIME_ESTIMATE_PER_GRID;
 
   const bonusRate = isRushHour ? BUNDLE_RUSH_HOUR_BONUS_RATE : BUNDLE_BONUS_RATE;
-  const baseExtraReward = Math.floor(secondaryOrder.reward * bonusRate);
-  const extraReward = secondaryOrder.reward + baseExtraReward;
-  const totalReward = primaryOrder.reward + extraReward;
+  const extraReward = Math.floor(secondaryOrder.reward * bonusRate);
+  const totalReward = primaryOrder.reward + secondaryOrder.reward + extraReward;
 
   let atRiskOrderId: string | null = null;
   let atRiskMinutes = 0;
@@ -216,6 +270,7 @@ export function generateBundlePreview(
     totalReward,
     steps,
     isRushHour,
+    bundleBonus: extraReward,
   };
 }
 
@@ -234,7 +289,11 @@ function calculateTimeToStep(steps: BundleStep[], targetStepIndex: number, start
       map.roads,
       map.gridSize
     );
-    totalDistance += path.length;
+    if (path.length === 0) {
+      totalDistance += calculateGridDistance(lastPos, steps[i].location);
+    } else {
+      totalDistance += path.length;
+    }
     lastPos = steps[i].location;
   }
 
